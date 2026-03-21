@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JC Français — Course Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;min-height:100vh;color:#1e293b}
+/* HEADER */
+.header{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 60%,#a855f7 100%);color:white;padding:28px 28px 20px}
+.header h1{font-size:26px;font-weight:800;letter-spacing:-0.3px;margin-bottom:4px}
+.header-sub{font-size:13px;opacity:.8;margin-bottom:20px}
+.header-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.btn-ghost{background:rgba(255,255,255,.15);color:white}
+.btn-ghost:hover{background:rgba(255,255,255,.28)}
+.sync-label{font-size:12px;opacity:.7;margin-right:4px}
+/* PROGRESS BAR */
+.prog-strip{background:white;padding:14px 28px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.prog-stat{text-align:center;min-width:56px}
+.prog-stat .n{font-size:20px;font-weight:700;color:#4f46e5}
+.prog-stat .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-top:1px}
+.prog-bar-wrap{flex:1;min-width:160px}
+.prog-bar-lbl{font-size:11px;color:#64748b;margin-bottom:5px}
+.prog-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#4f46e5,#7c3aed);border-radius:4px;transition:width .4s ease}
+/* CYCLE TABS */
+.tabs{background:white;border-bottom:2px solid #e2e8f0;padding:0 24px;display:flex;gap:0;overflow-x:auto}
+.tab{padding:14px 22px;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;display:flex;align-items:center;gap:8px;transition:color .15s}
+.tab:hover{color:#4f46e5}
+.tab.active{color:#4f46e5;border-bottom-color:#4f46e5}
+.lvl-chip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}
+.lc-b{background:#dcfce7;color:#15803d}
+.lc-i{background:#dbeafe;color:#1d4ed8}
+.lc-a{background:#ede9fe;color:#7c3aed}
+/* MAIN */
+.main{max-width:860px;margin:0 auto;padding:20px 20px 40px}
+.cycle-desc{font-size:13px;color:#64748b;margin-bottom:16px;padding:12px 16px;background:white;border-radius:10px;border-left:4px solid #4f46e5}
+/* WEEK CARD */
+.week-card{background:white;border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.week-hdr{padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none}
+.week-hdr:hover{background:#fafbfc}
+.wnum{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.wn-b{background:#dcfce7;color:#15803d}
+.wn-i{background:#dbeafe;color:#1d4ed8}
+.wn-a{background:#ede9fe;color:#7c3aed}
+.week-info{flex:1;min-width:0}
+.week-title{font-weight:700;font-size:14px;color:#1e293b}
+.week-topics{font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.week-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.wprog{font-size:11px;color:#94a3b8;white-space:nowrap}
+.wchev{font-size:11px;color:#94a3b8;transition:transform .2s}
+.week-card.open .wchev{transform:rotate(180deg)}
+/* DOC LIST */
+.doc-list{display:none;border-top:1px solid #f1f5f9}
+.week-card.open .doc-list{display:block}
+.doc-item{display:flex;align-items:center;gap:10px;padding:9px 18px;border-bottom:1px solid #f8fafc;transition:background .12s}
+.doc-item:last-child{border-bottom:none}
+.doc-item:hover{background:#fafbfc}
+.dcb{width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:#4f46e5}
+.dtype{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;flex-shrink:0;white-space:nowrap}
+.dt-l{background:#dbeafe;color:#1d4ed8}
+.dt-e{background:#fef3c7;color:#b45309}
+.dt-c{background:#dcfce7;color:#15803d}
+.dt-x{background:#fee2e2;color:#dc2626}
+.dt-r{background:#ccfbf1;color:#0f766e}
+.dt-f{background:#f1f5f9;color:#475569}
+.dt-d{background:#ede9fe;color:#7c3aed}
+.dt-m{background:#fce7f3;color:#be185d}
+.dname{flex:1;font-size:13px;color:#334155;min-width:0}
+.doc-item.done .dname{text-decoration:line-through;color:#94a3b8}
+.doc-item.done{opacity:.7}
+.dbtn{font-size:11px;padding:4px 10px;background:#f1f5f9;color:#475569;border:none;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;flex-shrink:0;white-space:nowrap}
+.dbtn:hover{background:#e2e8f0;color:#1e293b}
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.modal{background:white;border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:85vh;overflow-y:auto}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:4px}
+.modal-sub{font-size:12px;color:#64748b;margin-bottom:20px;line-height:1.5}
+.mlabel{font-size:12px;font-weight:700;color:#374151;margin-bottom:5px;display:block;margin-top:12px}
+.mlabel:first-of-type{margin-top:0}
+.minput{width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;color:#1e293b}
+.minput:focus{border-color:#4f46e5}
+.mbtns{display:flex;gap:8px;margin-top:16px}
+.btn-prim{background:#4f46e5;color:white;padding:9px 20px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-size:13px}
+.btn-prim:hover{background:#4338ca}
+.btn-sec{background:#f1f5f9;color:#374151;padding:9px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px}
+.btn-sec:hover{background:#e2e8f0}
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:white;padding:10px 20px;border-radius:8px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+@media(max-width:600px){
+  .header{padding:20px 16px 16px}
+  .main{padding:12px 12px 32px}
+  .tab{padding:12px 14px;font-size:12px}
+  .week-topics{display:none}
+}
+
+/* PDF VIEWER PANEL */
+.pdf-pane{display:none;border-top:1px solid #eef0f8}
+.pdf-pane.show{display:block}
+.pdf-pane iframe{width:100%;height:680px;border:none;display:block;background:#f8f9fa}
+.pdf-note{padding:8px 16px;font-size:11px;color:#64748b;background:#fef9c3;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+.pdf-note a{color:#4f46e5;font-weight:600;text-decoration:none}
+.dcontent-btn{font-size:11px;padding:4px 9px;background:#ede9fe;color:#7c3aed;border:none;border-radius:6px;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.dcontent-btn:hover{background:#ddd6fe}
+.dcontent-btn.active{background:#7c3aed;color:white}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>🇨🇦 JC Français</h1>
+  <p id="hdr-sub" class="header-sub">Cycle Basique · Intermédiaire · Avancé</p>
+  <div class="header-controls">
+    <span id="sync-lbl" class="sync-label">📲 Sync:</span>
+    <button class="btn btn-ghost" onclick="exportProg()" id="btn-exp">⬆ Export</button>
+    <button class="btn btn-ghost" onclick="importProg()" id="btn-imp">⬇ Import</button>
+    <button class="btn btn-ghost" onclick="openSettings()" id="btn-set">⚙️ Drive Links</button>
+    <button class="btn btn-ghost" onclick="toggleLang()" id="btn-lng">🇻🇪 Español</button>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div class="prog-strip">
+  <div class="prog-stat"><div class="n" id="prog-done">0</div><div class="l" id="prog-done-lbl">Done</div></div>
+  <div class="prog-stat"><div class="n" id="prog-total">0</div><div class="l" id="prog-total-lbl">Total</div></div>
+  <div class="prog-bar-wrap">
+    <div class="prog-bar-lbl" id="prog-lbl">Overall Progress</div>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<!-- CYCLE TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="showCycle(0)" id="tab0">
+    <span id="tab0-name">Basic Cycle</span><span class="lvl-chip lc-b">A1–A2</span>
+  </div>
+  <div class="tab" onclick="showCycle(1)" id="tab1">
+    <span id="tab1-name">Intermediate Cycle</span><span class="lvl-chip lc-i">B1–B2</span>
+  </div>
+  <div class="tab" onclick="showCycle(2)" id="tab2">
+    <span id="tab2-name">Advanced Cycle</span><span class="lvl-chip lc-a">B2–C2</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="main-content"></div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="settings-overlay">
+  <div class="modal">
+    <h3 id="set-title">⚙️ Google Drive Links</h3>
+    <p class="modal-sub" id="set-sub">Paste your Google Drive folder links for each cycle. When you click a document, it will open directly in Drive.</p>
+    <label class="mlabel" id="set-lb0">📗 Basic Cycle — Drive Folder URL</label>
+    <input class="minput" id="drv-b" placeholder="https://drive.google.com/drive/folders/...">
+    <label class="mlabel" id="set-lb1">📘 Intermediate Cycle — Drive Folder URL</label>
+    <input class="minput" id="drv-i" placeholder="https://drive.google.com/drive/folders/...">
+    <label class="mlabel" id="set-lb2">📙 Advanced Cycle — Drive Folder URL</label>
+    <input class="minput" id="drv-a" placeholder="https://drive.google.com/drive/folders/...">
+    <div class="mbtns">
+      <button class="btn-prim" id="set-save" onclick="saveSettings()">Save Links</button>
+      <button class="btn-sec" id="set-close" onclick="closeSettings()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT/IMPORT MODAL -->
+<div class="overlay" id="io-overlay">
+  <div class="modal">
+    <h3 id="io-title">Sync Progress</h3>
+    <p class="modal-sub" id="io-sub">Copy this code and paste it on another device to sync your progress.</p>
+    <textarea class="minput" id="io-text" rows="5" style="resize:vertical;font-family:monospace;font-size:11px"></textarea>
+    <div class="mbtns">
+      <button class="btn-prim" id="io-btn" onclick="doImport()">Import</button>
+      <button class="btn-sec" onclick="closeIO()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// TRANSLATIONS
+// ============================================================
+const T = {
+  en: {
+    sub: 'Cycle Basique · Intermédiaire · Avancé · JC Français',
+    syncLbl: '📲 Sync:', expBtn: '⬆ Export', impBtn: '⬇ Import',
+    setBtn: '⚙️ Drive Links', lngBtn: '🇻🇪 Español',
+    progDone: 'Done', progTotal: 'Total', progLbl: 'Overall Progress',
+    tab: ['Basic Cycle','Intermediate Cycle','Advanced Cycle'],
+    cycleDesc: [
+      'Foundations of French: pronouns, être/avoir/aller, present tense, passé composé, articles, negation, and the Pyramide method.',
+      'Building fluency: indirect speech, imperative, future, conditional, comparisons, pronouns COD/COI, gérondif, and l\'hypothèse.',
+      'Advanced mastery: hypothèse, subjonctif, verbe falloir, pronominal verbs, lettre de motivation, and final exam preparation.'
+    ],
+    week: 'Week',
+    weekTopics: [
+      // Basique
+      ['Pronouns · Être · 1st Group Verbs · Present · Questions · Negation',
+       'Avoir · Passé Composé · Articles · Aller · Futur Proche · Pronoms Toniques',
+       'Avoir Besoin/Envie/Mal · Venir · Devoir · Vouloir · Pouvoir · Passé Récent',
+       'L\'Imparfait · Discours Indirect · La Pyramide dans tous les temps'],
+      // Intermédiaire
+      ['Discours Indirect · Verbe Faire · Impératif · Verbe Tomber · Tous les Temps en Passé',
+       'Pronoms Possessifs · Comparaisons · COD/COI · Adverbes · Gérondif',
+       'Nombres · Futur Simple · Conditionnel · Futur Antérieur · Connecteurs Logiques',
+       'L\'Hypothèse · Prononciation · C\'est vs Ça · Pronoms EN et Y'],
+      // Avancé
+      ['L\'Hypothèse (Révision) · Phonétique · Verbes Pronominaux · Se Passer/S\'en Aller',
+       'Le Verbe Falloir · Exercices · Dialogues · Textes B2-C',
+       'Le Subjonctif · Applications · Falloir dans la Pyramide · Discours Indirect Avancé',
+       'Lettre de Motivation · Exercices Avancés · Compréhension B2 · Examen Final']
+    ],
+    dtype: {l:'Lesson',e:'Exercise',c:'Correction',x:'Exam',r:'Reading',f:'Reference',d:'Dictation',m:'Emailing'},
+    openBtn: '📄 Open',
+    setTitle: '⚙️ Google Drive Links',
+    setDesc: 'Paste your Google Drive folder links for each cycle. When you click a document, it will open directly in Drive.',
+    setLbls: ['📗 Basic Cycle — Drive Folder URL','📘 Intermediate Cycle — Drive Folder URL','📙 Advanced Cycle — Drive Folder URL'],
+    saveLbl: 'Save Links', closeLbl: 'Close',
+    ioTitle: 'Sync Progress',
+    ioDesc: 'Copy this code and paste it on another device to import your progress.',
+    ioBtnImp: 'Import', ioBtnCopy: 'Copy Code',
+    toastExp: '✅ Code copied! Paste it on your other device.',
+    toastImp: '✅ Progress imported!',
+    toastErr: '❌ Invalid code — make sure you copied it fully.',
+    toastSave: '✅ Drive links saved!',
+    docsDone: (d,t) => `${d}/${t} done`,
+  },
+  es: {
+    sub: 'Ciclo Básico · Intermedio · Avanzado · JC Français',
+    syncLbl: '📲 Sincronizar:', expBtn: '⬆ Exportar', impBtn: '⬇ Importar',
+    setBtn: '⚙️ Links Drive', lngBtn: '🇬🇧 English',
+    progDone: 'Hechos', progTotal: 'Total', progLbl: 'Progreso General',
+    tab: ['Ciclo Básico','Ciclo Intermedio','Ciclo Avanzado'],
+    cycleDesc: [
+      'Fundamentos del francés: pronombres, être/avoir/aller, presente, passé composé, artículos, negación y el método de la Pirámide.',
+      'Desarrollo de fluidez: discurso indirecto, imperativo, futuro, condicional, comparaciones, pronombres COD/COI, gérondif e hipótesis.',
+      'Dominio avanzado: hipótesis, subjonctif, verbo falloir, verbos pronominales, lettre de motivation y preparación para el examen final.'
+    ],
+    week: 'Semana',
+    weekTopics: [
+      ['Pronombres · Être · Verbos Grupo 1 · Presente · Preguntas · Negación',
+       'Avoir · Passé Composé · Artículos · Aller · Futur Proche · Pronombres Tónicos',
+       'Avoir Besoin/Envie/Mal · Venir · Devoir · Vouloir · Pouvoir · Passé Récent',
+       'L\'Imparfait · Discurso Indirecto · La Pirámide en todos los tiempos'],
+      ['Discurso Indirecto · Verbo Faire · Imperativo · Verbo Tomber · Todos los Tiempos en Pasado',
+       'Pronombres Posesivos · Comparaciones · COD/COI · Adverbios · Gérondif',
+       'Números · Futuro Simple · Condicional · Futuro Anterior · Conectores Lógicos',
+       'La Hipótesis · Pronunciación · C\'est vs Ça · Pronombres EN e Y'],
+      ['La Hipótesis (Revisión) · Fonética · Verbos Pronominales · Se Passer/S\'en Aller',
+       'El Verbo Falloir · Ejercicios · Diálogos · Textos B2-C',
+       'El Subjonctif · Aplicaciones · Falloir en la Pirámide · Discurso Indirecto Avanzado',
+       'Lettre de Motivation · Ejercicios Avanzados · Comprensión B2 · Examen Final']
+    ],
+    dtype: {l:'Lección',e:'Ejercicio',c:'Corrección',x:'Examen',r:'Lectura',f:'Referencia',d:'Dictado',m:'Emailing'},
+    openBtn: '📄 Abrir',
+    setTitle: '⚙️ Links de Google Drive',
+    setDesc: 'Pega los links de tus carpetas de Google Drive para cada ciclo. Al hacer clic en un documento, se abrirá directamente en Drive.',
+    setLbls: ['📗 Ciclo Básico — URL Carpeta Drive','📘 Ciclo Intermedio — URL Carpeta Drive','📙 Ciclo Avanzado — URL Carpeta Drive'],
+    saveLbl: 'Guardar Links', closeLbl: 'Cerrar',
+    ioTitle: 'Sincronizar Progreso',
+    ioDesc: 'Copia este código y pégalo en otro dispositivo para importar tu progreso.',
+    ioBtnImp: 'Importar', ioBtnCopy: 'Copiar Código',
+    toastExp: '✅ ¡Código copiado! Pégalo en tu otro dispositivo.',
+    toastImp: '✅ ¡Progreso importado!',
+    toastErr: '❌ Código inválido — asegúrate de copiarlo completo.',
+    toastSave: '✅ ¡Links de Drive guardados!',
+    docsDone: (d,t) => `${d}/${t} hechos`,
+  }
+};
+
+function getLang(){ return localStorage.getItem('jcf_lang')||'en'; }
+function setLang(l){ localStorage.setItem('jcf_lang',l); location.reload(); }
+function toggleLang(){ setLang(getLang()==='en'?'es':'en'); }
+const t = T[getLang()];
+
+// ============================================================
+// PDF CONTENT DATA
+// ============================================================
+// PDF content removed - PDFs are embedded inline
+
+
+function pdfRelPath(folder, weekNum, filename){
+  var p = folder + ' - Semana #' + weekNum + '/' + filename;
+  return p.replace(/ /g,'%20').replace(/#/g,'%23').replace(/'/g,'%27').replace(/,/g,'%2C');
+}
+
+function toggleContent(btn, keyId){
+  const panel = document.getElementById('cp-' + keyId);
+  if(!panel) return;
+  const isOpen = panel.classList.toggle('show');
+  btn.classList.toggle('active', isOpen);
+  btn.textContent = isOpen ? '▲ Hide' : '📄 View PDF';
+  if(isOpen){
+    const fr = panel.querySelector('iframe');
+    if(fr && !fr.src && fr.dataset.src){ fr.src = fr.dataset.src; }
+  }
+}
+
+// ============================================================
+// COURSE DATA
+// Types: l=lesson e=exercise c=correction x=exam r=reading f=reference d=dictation m=emailing
+// Format: [filename, displayName, type]
+// ============================================================
+const LOCAL_BASE = 'C:/Users/learn/Desktop/JC Francais';
+
+const CYCLES = [
+  {
+    id:'basique', folder:'Cycle Basique',
+    weeks:[
+      { num:1, docs:[
+        ['2.- LA PYRAMIDE.pdf','La Pyramide','f'],
+        ['3.-LES PRONOMS.pdf','Les Pronoms','l'],
+        ['4,.LE VERBE ÊTRE.pdf','Le Verbe Être','l'],
+        ['5.- LES VERBES DU PREMIER GROUPE.pdf','Les Verbes du 1er Groupe','l'],
+        ['6.- CONJUGAISON VERBES.pdf','Conjugaison des Verbes','l'],
+        ['6.1.-CONJUGUER LES VERBES SUIVANTS.pdf','Exercice: Conjuguer les Verbes','e'],
+        ['7.-EXEMPLES.pdf','Exemples','f'],
+        ['8.-PRESENT PROGRESSIF.pdf','Le Présent Progressif','l'],
+        ['8.A DICTÉE.pdf','Dictée','d'],
+        ['9.-QUESTION.pdf','La Question','l'],
+        ['10.- LA NEGATION.pdf','La Négation','l'],
+        ['11.-PASSER A PRESENT SIMPLE ET AU P. PROGRESSIF.pdf','Exercice: Présent Simple et Progressif','e'],
+        ['11.1.- corrections exercise.pdf','Corrections','c'],
+        ['12.-EXCERCISES TRADUCTION, QUESTION .pdf','Exercices: Traduction et Question','e'],
+        ['12.1.-CORRECTION EXCERCISES TRADUCTION.pdf','Corrections Traduction','c'],
+        ['12.A.-TRADUIRE Á L ESPAGNOL.pdf','Traduire à l\'Espagnol','e'],
+        ['12.B-CORRECTION DIAPO 12A.pdf','Correction 12A','c'],
+        ['PHRASES - JCFRANCAIS.pdf','Liste de Phrases JC Français','f'],
+      ]},
+      { num:2, docs:[
+        ['13.-AVOIR.pdf','Le Verbe Avoir','l'],
+        ['14.-EX.pdf','Exercices Avoir','e'],
+        ['15.-TRADUIRE AU FRANCAIS.pdf','Traduire au Français','e'],
+        ['16.A.- COMMENT UTILISER LES APOSTROPHES .pdf','Comment Utiliser les Apostrophes','l'],
+        ['16.B.- LISTE DES PRINCIPAUX VERBES DU PREMIER GROUPE-.pdf','Liste des Verbes du 1er Groupe','f'],
+        ['17.- PASSÉ COMPOSÉ.pdf','Le Passé Composé','l'],
+        ['18.-EXERCISES.pdf','Exercices Passé Composé','e'],
+        ['18.1.- CORRECTION EXCERCISES.pdf','Corrections','c'],
+        ['19.- DES EXERCISES  AVEC P.SIMPLE, P. PROGR. ET P. COMPOSÉ.pdf','Exercices: Présent + PC','e'],
+        ['20.- CORRECTION EXERCISES #  19.pdf','Corrections Exercices #19','c'],
+        ['21.- LES ARTICLES.pdf','Les Articles','l'],
+        ['22.-UTILISATION DE TOUS LES ARTICLES - copia.pdf','Utilisation de Tous les Articles','l'],
+        ['23.-  TRADUIRE AU FRANÇAIS.pdf','Exercice: Traduire au Français','e'],
+        ['23.1 CORRECTION TRADUIRE AU FRANÇAIS.pdf','Correction Traduction','c'],
+        ['23A.- LECTURE LES ARTICLES.pdf','Lecture: Les Articles','r'],
+        ['24.cést.pdf','C\'est','l'],
+        ['25. a .- IL Y A.pdf','Il y a','l'],
+        ['25.Aller.pdf','Le Verbe Aller','l'],
+        ['26.futur proche.pdf','Le Futur Proche','l'],
+        ['27. -Les pronoms toniques.pdf','Les Pronoms Toniques','l'],
+        ['28.- EXERCISES DE TRADUCTION NIVEAU A2.pdf','Exercices de Traduction A2','e'],
+        ['28.A- TRADUCTION EXERCISES NIVEAU A2.pdf','Corrections Traduction A2','c'],
+      ]},
+      { num:3, docs:[
+        ['29.Avoir besoin.pdf','Avoir Besoin','l'],
+        ['30.Avoir beson en passé composé.pdf','Avoir Besoin en Passé Composé','l'],
+        ['31. - Avoir envie.pdf','Avoir Envie','l'],
+        ['31. - Avoir envie (1).pdf','Avoir Envie (variante)','l'],
+        ['32.- Avoir envie en passé Composé et Fut. Proche.pdf','Avoir Envie en PC et Futur Proche','l'],
+        ['33 AVOIR MAL AU PRÉSENT, P. COMPOSÉ ET FUT. PROCHE.pdf','Avoir Mal','l'],
+        ['34.- TRADUIRE AU FRANÇAIS LES PHRASES SUIVANTES.pdf','Exercices de Traduction','e'],
+        ['34.1- CORRECTION DES EXERCISES.pdf','Corrections','c'],
+        ['35-  EXAMEN PARTIEL CYCLE BASIQUE (1).pdf','Examen Partiel','x'],
+        ['Emailing 36.- LES QUESTIONS TYPIQUES DANS UN RENCONTRE.pdf','Les Questions Typiques','m'],
+        ['37 A.- LA PRONONCIATION DES MOTS AVEC R.pdf','Prononciation: Mots avec R','l'],
+        ['37.-DICTÉE.pdf','Dictée','d'],
+        ['38.-VENIR.pdf','Le Verbe Venir','l'],
+        ['39.-adjectifs démonstratifs.pdf','Les Adjectifs Démonstratifs','l'],
+        ['40.-Les questions.pdf','Les Questions','l'],
+        ['41.-.-.les adjectifs possessifs.pdf','Les Adjectifs Possessifs','l'],
+        ['42.-.PASSÉ RÉCENT.pdf','Le Passé Récent','l'],
+        ['43.-TRADUIRE LES PHRASES SUIVANTES AUX TEMPS DEMANDÉS.pdf','Exercices de Traduction','e'],
+        ['43.1.- CORRECTION DES EXERCISES.pdf','Corrections','c'],
+        ['44-.DEVOIR.pdf','Le Verbe Devoir','l'],
+        ['45.- Vouloir et Pouvoir.pdf','Vouloir et Pouvoir','l'],
+        ['46.-LES VERBES LES PLUS IMPORTANTS.pdf','Les Verbes les Plus Importants','f'],
+        ['46.1.- correction des exercises 46.-.pdf','Corrections Exercices','c'],
+        ['47 A.- LECTURE NIVEAU A2.pdf','Lecture Niveau A2','r'],
+        ['47.-EXERCISES DE TRADUCTION.pdf','Exercices de Traduction','e'],
+        ['47.1-CORRECTION DES EXERCISES.pdf','Corrections','c'],
+        ['48.-LES VERBES DE LA MAISON.pdf','Les Verbes de la Maison','l'],
+        ['49.- Nouvelle formule du passé Composé.pdf','Nouvelle Formule du PC','l'],
+        ['50. pratique Mettre la réponse qui correspond.pdf','Pratique: Mettre la Réponse','e'],
+        ['51.-EXERCISES.pdf','Exercices','e'],
+        ['51.1.-CORRECTION EXERCISES.pdf','Corrections','c'],
+        ['52.1-correction exercises .pdf','Corrections','c'],
+      ]},
+      { num:4, docs:[
+        ['53. L´IMPARFAIT.pdf','L\'Imparfait','l'],
+        ['54.-. IMPARFAIT PROGRESSIF.pdf','L\'Imparfait Progressif','l'],
+        ['55.-.FUTUR PROCHE EN IMPARFAIT.pdf','Futur Proche en Imparfait','l'],
+        ['56..- AVOIR BESOIN, A. ENVIE y A. MAL EN IMPARFAIT.pdf','Avoir Besoin/Envie/Mal en Imparfait','l'],
+        ['57.- PASSÉ RÉCENT EN IMPARFAIT.pdf','Passé Récent en Imparfait','l'],
+        ['58.- LISTE DES VERBES LES PLUS UTILISÉS.pdf','Liste des Verbes les Plus Utilisés','f'],
+        ['59.- TRADUIRE LES PHRASES SUIVANTES NIVEAU A2 - B1.pdf','Exercices de Traduction A2-B1','e'],
+        ['59.1- CORRECTION DES EXERCISES NIVEAU A2- B1.pdf','Corrections A2-B1','c'],
+        ['60- LA NAISSANCE DU DISCOURS INDIRECTE - copia.pdf','La Naissance du Discours Indirect','l'],
+        ['61.- CORRECTION EXERCISES 60.pdf','Corrections Exercice 60','c'],
+        ['62_LE_COMPORTEMENT_DE_LA_PYRAMIDE_DANS_LES_PRINCIPAUX_TEMPS_.pdf','La Pyramide dans les Principaux Temps','f'],
+        ['Emailing 35.1-  CORRECTION EXAMEN PARTIEL CYCLE BASIQUE (1).pdf','Correction Examen Partiel','m'],
+      ]},
+    ]
+  },
+  {
+    id:'intermediaire', folder:'Cycle Intermediare',
+    weeks:[
+      { num:1, docs:[
+        ['1_1_ÉLABORER_UN_DISCOURS_INDIRECTE_DANS_LES_PHRASES_SUIVANTES.pdf','Élaborer un Discours Indirect','e'],
+        ['1.2.- CORRECTIONS EXERCISES.pdf','Corrections','c'],
+        ['2.- LES APPLICATIONS DU VERBE FAIRE.pdf','Applications du Verbe Faire','l'],
+        ['3.-.IL Y A.pdf','Il y a (révision)','l'],
+        ['4.- L\' IMPERATIF.pdf','L\'Impératif','l'],
+        ['5.- LES APPLICATIONS DU VERBE TOMBER.pdf','Applications du Verbe Tomber','l'],
+        ['6_TRADUIRE_LES_PHRASES_SUIVANTES_AVEC_LES_APPLICATIONS_DU_VERBE.pdf','Exercice: Traduction (Verbe Faire)','e'],
+        ['6.1.- CORRECTIONS DES EXERCISES.pdf','Corrections','c'],
+        ['6.2.-TOUS LES TEMPS EN PASSÉ.pdf','Tous les Temps en Passé','f'],
+        ['6.3.- EXERCISES AVEC TOUS LES TEMPS EN PASSÉ.pdf','Exercices: Tous les Temps en Passé','e'],
+        ['6.4.- CORRECTIONS EXERCISES # 6.3 (1).pdf','Corrections','c'],
+        ['6.5.- DICTÉE --.pdf','Dictée','d'],
+        ['6.6.-UNE PLANIFICATION DE VOYAGE ENTRE AMIS.pdf','Dialogue: Planification de Voyage','r'],
+      ]},
+      { num:2, docs:[
+        ['7.- LES PRONOMS POSSESSIFS.pdf','Les Pronoms Possessifs','l'],
+        ['8.- PAS vs. PLUS.pdf','Pas vs. Plus','l'],
+        ['9.- QUE  VS   QUI.pdf','Que vs. Qui','l'],
+        ['10- .LES COMPARAISONS.pdf','Les Comparaisons','l'],
+        ['11.- LA CONJONCTION QUE.pdf','La Conjonction Que','l'],
+        ['12.- TRADUIRE LES PHRASES SUIVANTES.pdf','Exercice: Traduire','e'],
+        ['12.1.- CORRECTION  TRADUIRE LES PHRASES SUIVANTES.pdf','Corrections','c'],
+        ['13.- LES PRONOMS COD ET COI.pdf','Les Pronoms COD et COI','l'],
+        ['13.1- EXEMPLES DE COD ET COI.pdf','Exemples COD et COI','f'],
+        ['13A.- CORRECTION DIAPO # 13.pdf','Corrections','c'],
+        ['14.-UNE VISITE INOUBLIABLE EN FRANCE.pdf','Lecture: Une Visite Inoubliable','r'],
+        ['15.-LES ADVERBES DE QUANTITÉ.pdf','Les Adverbes de Quantité','l'],
+        ['16. LES ADVERBES DE TEMPS.pdf','Les Adverbes de Temps','l'],
+        ['17.-TRADUIRE AU FRANCAIS LES PHRASES SUIVANTES.pdf','Exercice: Traduction','e'],
+        ['17.1 CORRECTION TRADUIRE AU FRANCAIS LES PHRASES SUIVANTES.pdf','Corrections','c'],
+        ['17.2.- DICTÉE.pdf','Dictée','d'],
+        ['18.- LE GÉRONDIF.pdf','Le Gérondif','l'],
+        ['19.- FORMER UN GÉRONDIF DANS LES PHRASES SUIVANTES.pdf','Exercice: Former un Gérondif','e'],
+        ['19...1.- CORRECTION FORMER UN GÉRONDIF DANS LES PHRASES SUIVANTES.pdf','Corrections','c'],
+        ['20.-EXERCISES.pdf','Exercices','e'],
+        ['20.1.-CORECTION EXERCISES.pdf','Corrections','c'],
+        ['21.- TRADUIRE ET PASSER AU DISCOURS INDIRECTE  LE TEXTE SUIVANT.pdf','Exercice: Discours Indirect','e'],
+        ['21.1- CORRECTION TRADUCTION  PASSER AU DISCOURS INDIRECTE  LE TEXTE SUIVANT.pdf','Corrections','c'],
+        ['Instructions.pdf','Instructions','f'],
+      ]},
+      { num:3, docs:[
+        ['21.A.- CHAT ENTRE AMIS.pdf','Dialogue: Chat entre Amis','r'],
+        ['22.-LES NOMBRES.pdf','Les Nombres','l'],
+        ['23.-FUTUR SIMPLE.pdf','Le Futur Simple','l'],
+        ['23.1 .- CORRECTIONS EXERCISES # 23.pdf','Corrections','c'],
+        ['24.-LE FUTUR SIMPLE POUR LES VERBES REGULIERS OU DU 1ER GROUPE.pdf','Futur Simple: Verbes Réguliers','l'],
+        ['25.- LES AUXILIAIRES ÊTRE ET AVOIR.pdf','Les Auxiliaires Être et Avoir','f'],
+        ['25.A.- RÉPONSES DIAPO # 25.pdf','Réponses','c'],
+        ['26.- EL VERBO EXTRAÑAR EN FRANCES.pdf','Le Verbe "Manquer" (Extrañar)','l'],
+        ['26.A.- RÉPONSES DIAPO # 26.pdf','Réponses','c'],
+        ['27.-FUTUR ANTERIEUR.pdf','Le Futur Antérieur','l'],
+        ['27A.- RÉPONSES DIAPO 27.pdf','Réponses','c'],
+        ['28.- LE CONDITIONNEL.pdf','Le Conditionnel','l'],
+        ['29.- CONJUGAISON VERBES EN F. SIMPLE ET CONDITIONNEL.pdf','Conjugaison: Futur et Conditionnel','e'],
+        ['29.1.- CORRECTION EXERCISES # 29.pdf','Corrections','c'],
+        ['30.-LE CONDITIONNEL EN PASSÉ.pdf','Le Conditionnel Passé','l'],
+        ['31.-CONNECTEURS OU LIENS LOGIQUES (1).pdf','Connecteurs et Liens Logiques','l'],
+        ['31A.- TEXTE NIVEAU B2 TRADUIRE.pdf','Exercice: Texte B2 Traduction','e'],
+        ['31B.- TEXTE NIVEAU B2 TRADUCTION AU FRANCAIS.pdf','Correction Texte B2','c'],
+        ['LISTE DE PHRASES LES PLUS UTILISÉES DU 101-200-.pdf','Liste de Phrases 101–200','f'],
+      ]},
+      { num:4, docs:[
+        ['32.- L\'HYPOTHÈSE.pdf','L\'Hypothèse','l'],
+        ['33.- RÉSUMÉ HYPOTHÈSE.pdf','Résumé de l\'Hypothèse','f'],
+        ['34.- EXERCISES HYPOTHÈSES.pdf','Exercices: L\'Hypothèse','e'],
+        ['35.- CORRECTION EXERCISES # 34.pdf','Corrections','c'],
+        ['36.- TOURNOI DE PRONONCIATION.pdf','Tournoi de Prononciation','l'],
+        ['37. -C\'EST VS CA.pdf','C\'est vs. Ça','l'],
+        ['38.- LES PRONOMS ADVERBIAUX EN VS Y.pdf','Pronoms Adverbiaux EN vs Y','l'],
+        ['39.-LES FORMULES DE TOUS LES TEMPS -BASIQUE ET INTERMEDIAIRE.pdf','Formules de Tous les Temps','f'],
+      ]},
+    ]
+  },
+  {
+    id:'avance', folder:'Cycle Avancé',
+    weeks:[
+      { num:1, docs:[
+        ['0.00 RÉSUMÉ DE L\'HYPOTHÈSE.-..pdf','Résumé de l\'Hypothèse','f'],
+        ['1.- LA PHONÉTIQUE - .pdf','La Phonétique','l'],
+        ['1.- NAISSANCE D\' UNE HYPOTHÈSE --.pdf','Naissance d\'une Hypothèse','l'],
+        ['2.-  RÉPONSE FORMER UNE HYPOTHÈSE DANS LES PHRASES SUIVANTES.pdf','Exercice: Former une Hypothèse','e'],
+        ['2.- LA PYRAMIDE.pdf','La Pyramide (Avancé)','f'],
+        ['2.A.-LE VOL DU SIÈCLE.pdf','Lecture: Le Vol du Siècle','r'],
+        ['3.- .LES VERBES PRONOMINAUX.pdf','Les Verbes Pronominaux','l'],
+        ['3.1.-TEXTE NIVEAU A-B-C.pdf','Texte Niveaux A-B-C','r'],
+        ['3.2.-CORRECTION DU TEXTE NIVEAU A-B-C.pdf','Corrections','c'],
+        ['4.- SE PASSER - S\'EN ALLER.pdf','Se Passer / S\'en Aller','l'],
+        ['4.0.- CORRECTIONS EXERC. DIAPO # 4.pdf','Corrections','c'],
+        ['4.1.-EXERCISES NIVEAU B2 - C1.pdf','Exercices B2-C1','e'],
+        ['4.2.-  CORRECTION EXERC. 4.1.pdf','Corrections','c'],
+      ]},
+      { num:2, docs:[
+        ['4.3.- PHONÉTIQUE.pdf','La Phonétique (suite)','l'],
+        ['5.-LE VERBE FALLOIR.pdf','Le Verbe Falloir','l'],
+        ['6.- EXERCISES DE TRADUCTION FALLOIR.pdf','Exercices: Falloir','e'],
+        ['6.1.- CORRECTIONS EXERC. 6.0.pdf','Corrections','c'],
+        ['6.2.-UN DIALOGUE ENTRE AMIS.pdf','Dialogue entre Amis','r'],
+        ['6.3.-UN DIALOGUE ENTRE AMIS 6.2.pdf','Correction Dialogue','c'],
+        ['7.-.EXERCISES VERBES FALLOIR.pdf','Exercices: Verbes Falloir','e'],
+        ['8.- FALLOIR TEXTE NIVEAU B2-C.pdf','Texte B2-C: Falloir','r'],
+      ]},
+      { num:3, docs:[
+        ['8.A.- DES SUBSTANTIFS ET VERBES  NIVEAU C1 ET C2.pdf','Substantifs et Verbes C1-C2','f'],
+        ['8.B.- UN RECUEIL GRAMMATICAL VARIÉ.pdf','Recueil Grammatical Varié','f'],
+        ['9.-.LE SUBJONCTIF.pdf','Le Subjonctif','l'],
+        ['9.1.-LES APPLICATIONS DU SUBJONCTIF.pdf','Applications du Subjonctif','l'],
+        ['10.-TABLA DE VERBES EN SUBJONCTIF.pdf','Tableau des Verbes au Subjonctif','f'],
+        ['10.1.- LE VERBE FALLOIR DANS LA PYRAMIDE.pdf','Falloir dans la Pyramide','f'],
+        ['10.A.- D\'AUTRES VERBES EN SUBJONCTIF.pdf','D\'autres Verbes au Subjonctif','l'],
+        ['11.- PASSER AU FALLOIR INDIRECTE ET F. DIRECTE.pdf','Exercice: Falloir Indirect/Direct','e'],
+        ['12.-PLUSIEURS VERBES DANS UNE SUELE PHRASE.pdf','Plusieurs Verbes dans une Phrase','l'],
+        ['15- CORRECTION DISCOURS INDIRECTE AVEC FALLOIR.pdf','Corrections: Discours Indirect','c'],
+        ['Emailing 13.- LISTE DE PHRASES - JCFRANCAIS.pdf','Liste de Phrases JC Français','m'],
+        ['Emailing 14.- DISCOURS INDIRECTE AVEC FALLOIR.pdf','Discours Indirect avec Falloir','m'],
+        ['Emailing PIZARRA SUBJONCTIF.pdf','Pizarra du Subjonctif','m'],
+      ]},
+      { num:4, docs:[
+        ['16.- DES PHRASES AVEC LES MOTS EN ANGLAIS QUI SONT UTILISÉS EN FRANCAIS.pdf','Mots Anglais utilisés en Français','l'],
+        ['17.-LETTRE DE MOTIVATION.pdf','La Lettre de Motivation','l'],
+        ['19.- EXCERCISES DE TRADUCTION DANS TOUS LES NIVEAUX.pdf','Exercices de Traduction (tous niveaux)','e'],
+        ['19.1- CORRECTIONS EXERCISES DE TRADUCTION DE TOUS LES TEMPS.pdf','Corrections','c'],
+        ['Emailing 18.- LA PHYSIONOMIE DU VERBE FALLOIR.pdf','Physionomie du Verbe Falloir','m'],
+        ['Emailing 20.- EXAMEN FINAL AVANCÉ MARS 2025.pdf','Examen Final Avancé','x'],
+        ['Emailing I.- COMPRÉHENSION ORALE NIVEAU B2.pdf','Compréhension Orale B2','x'],
+        ['Emailing II.- COMPRÉHENSION ÉCRITE NIVEAU B2.pdf','Compréhension Écrite B2','x'],
+        ['Emailing TOUS LES TEMPS DE LA GRAMMAIRE FRANCAISE.-..pdf','Tous les Temps de la Grammaire','f'],
+      ]},
+    ]
+  },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+const SK = 'jcf_state';
+const DK = 'jcf_drive';
+
+function getState(){ try{ return JSON.parse(localStorage.getItem(SK)||'{}'); }catch(e){ return {}; } }
+function saveState(s){ localStorage.setItem(SK, JSON.stringify(s)); }
+function getDrive(){ try{ return JSON.parse(localStorage.getItem(DK)||'{}'); }catch(e){ return {}; } }
+function saveDrive(d){ localStorage.setItem(DK, JSON.stringify(d)); }
+
+function docKey(cIdx, wIdx, dIdx){ return `c${cIdx}_w${wIdx}_d${dIdx}`; }
+
+// ============================================================
+// HELPERS
+// ============================================================
+function localURL(folder, weekNum, filename){
+  const path = `${folder} - Semana #${weekNum}/${filename}`;
+  return path.replace(/ /g,'%20').replace(/#/g,'%23').replace(/'/g,'%27').replace(/,/g,'%2C');
+}
+
+function typeClass(tp){ return `dt-${tp}`; }
+function typeLabel(tp){ return t.dtype[tp]||tp; }
+
+function showToast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2800); }
+
+// ============================================================
+// PROGRESS
+// ============================================================
+function calcProgress(){
+  const state = getState();
+  let total=0, done=0;
+  CYCLES.forEach((cy,ci)=>{
+    cy.weeks.forEach((wk,wi)=>{
+      wk.docs.forEach((_,di)=>{
+        total++;
+        if(state[docKey(ci,wi,di)]) done++;
+      });
+    });
+  });
+  return {total,done};
+}
+
+function updateProgress(){
+  const {total,done} = calcProgress();
+  const pct = total>0 ? Math.round(done/total*100) : 0;
+  document.getElementById('prog-done').textContent = done;
+  document.getElementById('prog-total').textContent = total;
+  document.getElementById('prog-fill').style.width = pct+'%';
+  document.getElementById('prog-lbl').textContent = `${t.progLbl} — ${pct}%`;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+let activeCycle = parseInt(localStorage.getItem('jcf_cycle')||'0');
+
+function showCycle(idx){
+  activeCycle = idx;
+  localStorage.setItem('jcf_cycle', idx);
+  document.querySelectorAll('.tab').forEach((el,i)=>{ el.classList.toggle('active', i===idx); });
+  renderCycle(idx);
+}
+
+function wNumClass(id){
+  if(id==='basique') return 'wn-b';
+  if(id==='intermediaire') return 'wn-i';
+  return 'wn-a';
+}
+
+function renderCycle(ci){
+  const cy = CYCLES[ci];
+  const state = getState();
+  const drive = getDrive();
+  const driveLink = drive[cy.id];
+
+  let html = `<div class="cycle-desc">${t.cycleDesc[ci]}</div>`;
+
+  cy.weeks.forEach((wk, wi)=>{
+    const key_prefix = `w${ci}_${wi}`;
+    const isOpen = localStorage.getItem(`jcf_open_${key_prefix}`) === '1';
+    let wDone=0;
+    wk.docs.forEach((_,di)=>{ if(state[docKey(ci,wi,di)]) wDone++; });
+    const wTotal = wk.docs.length;
+    const wPct = wTotal>0 ? Math.round(wDone/wTotal*100) : 0;
+
+    html += `<div class="week-card${isOpen?' open':''}" id="wcard-${ci}-${wi}">`;
+    html += `<div class="week-hdr" onclick="toggleWeek(${ci},${wi})">`;
+    html += `<div class="wnum ${wNumClass(cy.id)}">${wk.num}</div>`;
+    html += `<div class="week-info">`;
+    html += `<div class="week-title">${t.week} ${wk.num}</div>`;
+    html += `<div class="week-topics">${t.weekTopics[ci][wi]}</div>`;
+    html += `</div>`;
+    html += `<div class="week-right">`;
+    html += `<span class="wprog">${t.docsDone(wDone,wTotal)} · ${wPct}%</span>`;
+    html += `<span class="wchev">▼</span>`;
+    html += `</div></div>`;
+
+    html += `<div class="doc-list">`;
+    wk.docs.forEach((doc, di)=>{
+      const [filename, display, tp] = doc;
+      const isDone = !!state[docKey(ci,wi,di)];
+      const localUrl = localURL(cy.folder, wk.num, filename);
+      const linkUrl = driveLink || localUrl;
+      html += `<div class="doc-item${isDone?' done':''}" id="di-${ci}-${wi}-${di}">`;
+      html += `<input type="checkbox" class="dcb" ${isDone?'checked':''} onchange="toggleDoc(${ci},${wi},${di},this.checked)">`;
+      html += `<span class="dtype ${typeClass(tp)}">${typeLabel(tp)}</span>`;
+      html += `<span class="dname">${display}</span>`;
+      const relPdf = pdfRelPath(cy.folder, wk.num, filename);
+      const ckeyId = ('pdf_' + cy.id + '_' + wk.num + '_' + filename).replace(/[^a-zA-Z0-9]/g,'_');
+      html += `<button class="dcontent-btn" onclick="toggleContent(this,'${ckeyId}')">📄 View PDF</button>`;
+      html += `<a class="dbtn" href="${linkUrl}" target="_blank">${t.openBtn}</a>`;
+      html += `</div>`;
+      html += `<div class="pdf-pane" id="cp-${ckeyId}"><div class="pdf-note"><span>💡 PDF shown below — if blank, use Open.</span><a href="${relPdf}" target="_blank">Open ↗</a></div><iframe data-src="${relPdf}"></iframe></div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function toggleWeek(ci,wi){
+  const key = `jcf_open_w${ci}_${wi}`;
+  const card = document.getElementById(`wcard-${ci}-${wi}`);
+  const isNowOpen = !card.classList.contains('open');
+  card.classList.toggle('open');
+  localStorage.setItem(key, isNowOpen?'1':'0');
+}
+
+function toggleDoc(ci,wi,di,checked){
+  const state = getState();
+  if(checked) state[docKey(ci,wi,di)]=1; else delete state[docKey(ci,wi,di)];
+  saveState(state);
+  const item = document.getElementById(`di-${ci}-${wi}-${di}`);
+  if(item) item.classList.toggle('done', checked);
+  // update week counter
+  const wk = CYCLES[ci].weeks[wi];
+  let wDone = 0;
+  wk.docs.forEach((_,di2)=>{ if(state[docKey(ci,wi,di2)]) wDone++; });
+  updateProgress();
+  // re-render week progress label
+  renderCycle(activeCycle);
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function openSettings(){
+  const d = getDrive();
+  document.getElementById('drv-b').value = d.basique||'';
+  document.getElementById('drv-i').value = d.intermediaire||'';
+  document.getElementById('drv-a').value = d.avance||'';
+  document.getElementById('settings-overlay').classList.add('show');
+}
+function closeSettings(){ document.getElementById('settings-overlay').classList.remove('show'); }
+function saveSettings(){
+  const d = {
+    basique: document.getElementById('drv-b').value.trim(),
+    intermediaire: document.getElementById('drv-i').value.trim(),
+    avance: document.getElementById('drv-a').value.trim(),
+  };
+  saveDrive(d);
+  closeSettings();
+  renderCycle(activeCycle);
+  showToast(t.toastSave);
+}
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+function exportProg(){
+  const code = btoa(JSON.stringify(getState()));
+  document.getElementById('io-title').textContent = t.ioTitle;
+  document.getElementById('io-sub').textContent = t.ioDesc;
+  document.getElementById('io-text').value = code;
+  document.getElementById('io-btn').textContent = t.ioBtnCopy;
+  document.getElementById('io-btn').onclick = ()=>{
+    navigator.clipboard.writeText(code).then(()=>showToast(t.toastExp));
+    closeIO();
+  };
+  document.getElementById('io-overlay').classList.add('show');
+}
+function importProg(){
+  document.getElementById('io-title').textContent = t.ioTitle;
+  document.getElementById('io-sub').textContent = t.ioDesc;
+  document.getElementById('io-text').value = '';
+  document.getElementById('io-btn').textContent = t.ioBtnImp;
+  document.getElementById('io-btn').onclick = doImport;
+  document.getElementById('io-overlay').classList.add('show');
+}
+function doImport(){
+  const val = document.getElementById('io-text').value.trim();
+  try{
+    const data = JSON.parse(atob(val));
+    saveState(data);
+    closeIO();
+    renderCycle(activeCycle);
+    updateProgress();
+    showToast(t.toastImp);
+  }catch(e){ showToast(t.toastErr); }
+}
+function closeIO(){ document.getElementById('io-overlay').classList.remove('show'); }
+
+// Close modals on overlay click
+document.getElementById('settings-overlay').addEventListener('click', function(e){ if(e.target===this) closeSettings(); });
+document.getElementById('io-overlay').addEventListener('click', function(e){ if(e.target===this) closeIO(); });
+
+// ============================================================
+// APPLY TRANSLATIONS
+// ============================================================
+function applyTranslations(){
+  document.getElementById('hdr-sub').textContent = t.sub;
+  document.getElementById('sync-lbl').textContent = t.syncLbl;
+  document.getElementById('btn-exp').textContent = t.expBtn;
+  document.getElementById('btn-imp').textContent = t.impBtn;
+  document.getElementById('btn-set').textContent = t.setBtn;
+  document.getElementById('btn-lng').textContent = t.lngBtn;
+  document.getElementById('prog-done-lbl').textContent = t.progDone;
+  document.getElementById('prog-total-lbl').textContent = t.progTotal;
+  document.getElementById('tab0-name').textContent = t.tab[0];
+  document.getElementById('tab1-name').textContent = t.tab[1];
+  document.getElementById('tab2-name').textContent = t.tab[2];
+  document.getElementById('set-title').textContent = t.setTitle;
+  document.getElementById('set-sub').textContent = t.setDesc;
+  document.getElementById('set-lb0').textContent = t.setLbls[0];
+  document.getElementById('set-lb1').textContent = t.setLbls[1];
+  document.getElementById('set-lb2').textContent = t.setLbls[2];
+  document.getElementById('set-save').textContent = t.saveLbl;
+  document.getElementById('set-close').textContent = t.closeLbl;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+applyTranslations();
+updateProgress();
+showCycle(activeCycle);
+</script>
+</body>
+</html>
