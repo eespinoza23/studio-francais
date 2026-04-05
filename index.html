@@ -219,8 +219,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const T = {
   en: {
     sub: 'Cycle Basique · Intermédiaire · Avancé · Studio Français',
-    syncLbl: '📲 Sync:', expBtn: '⬆ Export', impBtn: '⬇ Import',
     setBtn: '⚙️ Drive Links', lngBtn: '🇻🇪 Español',
+    syncBtn: { unconfigured:'☁ Setup Sync', syncing:'⟳ Syncing…', synced:'☁ Synced', error:'⚠ Sync error', auth_error:'⚠ Token invalid' },
     progDone: 'Done', progTotal: 'Total', progLbl: 'Overall Progress',
     tab: ['Basic Cycle','Intermediate Cycle','Advanced Cycle'],
     cycleDesc: [
@@ -263,8 +263,8 @@ const T = {
   },
   es: {
     sub: 'Ciclo Básico · Intermedio · Avanzado · Studio Français',
-    syncLbl: '📲 Sincronizar:', expBtn: '⬆ Exportar', impBtn: '⬇ Importar',
     setBtn: '⚙️ Links Drive', lngBtn: '🇬🇧 English',
+    syncBtn: { unconfigured:'☁ Configurar Sync', syncing:'⟳ Sincronizando…', synced:'☁ Sincronizado', error:'⚠ Error de sync', auth_error:'⚠ Token inválido' },
     progDone: 'Hechos', progTotal: 'Total', progLbl: 'Progreso General',
     tab: ['Ciclo Básico','Ciclo Intermedio','Ciclo Avanzado'],
     cycleDesc: [
@@ -618,14 +618,7 @@ const syncEngine = (() => {
     _status = s;
     const btn = document.getElementById('btn-sync');
     if (!btn) return;
-    const labels = {
-      unconfigured: '☁ Setup Sync',
-      syncing:      '⟳ Syncing…',
-      synced:       '☁ Synced',
-      error:        '⚠ Sync error',
-      auth_error:   '⚠ Token invalid',
-    };
-    btn.textContent = labels[s] || '☁ Sync';
+    btn.textContent = (t.syncBtn && t.syncBtn[s]) || '☁ Sync';
     btn.classList.remove('sync-ok','sync-err','sync-busy');
     if (s === 'synced')                        btn.classList.add('sync-ok');
     if (s === 'error' || s === 'auth_error')   btn.classList.add('sync-err');
@@ -664,10 +657,16 @@ const syncEngine = (() => {
         const remote  = JSON.parse(raw);
         const localTs = localStorage.getItem(TS_KEY) || '0';
         if (remote.lastModified > localTs) {
+          // Merge: union of checked items so no device ever loses progress
+          const localState  = JSON.parse(localStorage.getItem('jcf_state') || '{}');
+          const remoteState = JSON.parse(remote.state?.jcf_state || '{}');
+          Object.keys(localState).forEach(k => { if (localState[k] === true) remoteState[k] = true; });
+          remote.state.jcf_state = JSON.stringify(remoteState);
           applyState(remote.state);
           localStorage.setItem(TS_KEY, remote.lastModified);
           renderCycle(activeCycle);
           updateProgress();
+          await _write(); // push merged state back to Gist
         } else {
           await _write();
         }
