@@ -91,6 +91,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:white;padding:10px 20px;border-radius:8px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
+/* SYNC */
+#btn-sync.sync-ok{background:rgba(34,197,94,.22)}
+#btn-sync.sync-err{background:rgba(239,68,68,.22)}
+#btn-sync.sync-busy{opacity:.65}
+.sync-err-msg{color:#dc2626;font-size:12px;margin-bottom:8px;padding:8px 10px;background:#fee2e2;border-radius:6px;display:none}
+.sync-hint{font-size:11px;color:#64748b;margin-top:4px}
 @media(max-width:600px){
   .header{padding:20px 16px 16px}
   .main{padding:12px 12px 32px}
@@ -116,7 +122,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <h1>🎓 Studio Français</h1>
   <p id="hdr-sub" class="header-sub">Cycle Basique · Intermédiaire · Avancé</p>
   <div class="header-controls">
-    <span id="sync-lbl" class="sync-label">📲 Sync:</span>
+    <button class="btn btn-ghost" onclick="openSyncModal()" id="btn-sync">☁ Setup Sync</button>
     <button class="btn btn-ghost" onclick="exportProg()" id="btn-exp">⬆ Export</button>
     <button class="btn btn-ghost" onclick="importProg()" id="btn-imp">⬇ Import</button>
     <button class="btn btn-ghost" onclick="openSettings()" id="btn-set">⚙️ Drive Links</button>
@@ -182,6 +188,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- SYNC MODAL -->
+<div class="overlay" id="sync-overlay">
+  <div class="modal">
+    <!-- Setup view: enter PAT + optional Gist ID -->
+    <div id="sync-setup-view">
+      <h3>☁ Cloud Sync Setup</h3>
+      <p class="modal-sub">Sync progress across devices using a private GitHub Gist. Requires a free GitHub account.</p>
+      <div class="sync-err-msg" id="sync-err-msg"></div>
+      <label class="mlabel">GitHub Personal Access Token</label>
+      <input class="minput" id="sync-pat" type="password" placeholder="ghp_...">
+      <p class="sync-hint"><a href="https://github.com/settings/tokens/new?scopes=gist&description=Studio+Francais+Sync" target="_blank" style="color:#4f46e5">Create token on GitHub ↗</a> — select only the <strong>gist</strong> scope.</p>
+      <label class="mlabel">Gist ID <span style="font-weight:400;color:#94a3b8">(leave blank to create new)</span></label>
+      <input class="minput" id="sync-gist-in" placeholder="Paste Gist ID from your first device">
+      <div class="mbtns">
+        <button class="btn-prim" id="sync-connect-btn" onclick="doSyncConnect()">Connect</button>
+        <button class="btn-sec" onclick="closeSyncModal()">Cancel</button>
+      </div>
+    </div>
+    <!-- Settings view: show Gist ID + disconnect -->
+    <div id="sync-settings-view" style="display:none">
+      <h3>☁ Sync Settings</h3>
+      <p class="modal-sub">Progress syncs automatically to a private GitHub Gist.</p>
+      <label class="mlabel">Gist ID <span style="font-size:11px;color:#64748b">(paste on another device to connect)</span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="minput" id="sync-gist-display" readonly style="font-family:monospace;font-size:11px;flex:1">
+        <button class="btn-sec" onclick="copySyncGistId()" style="flex-shrink:0">Copy</button>
+      </div>
+      <label class="mlabel" style="margin-top:12px">Token</label>
+      <p style="font-size:12px;color:#64748b">••••••••••••••••&nbsp;<button onclick="switchToSetupView()" style="background:none;border:none;color:#4f46e5;cursor:pointer;font-size:12px;padding:0">Re-enter ↗</button></p>
+      <div class="mbtns">
+        <button class="btn-sec" style="color:#dc2626" onclick="doDisconnect()">Disconnect</button>
+        <button class="btn-sec" onclick="closeSyncModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -557,6 +600,147 @@ function saveDrive(d){ localStorage.setItem(DK, JSON.stringify(d)); }
 function docKey(cIdx, wIdx, dIdx){ return `c${cIdx}_w${wIdx}_d${dIdx}`; }
 
 // ============================================================
+// SYNC ENGINE
+// ============================================================
+const syncEngine = (() => {
+  const PAT_KEY  = 'jcf_pat';
+  const GID_KEY  = 'jcf_gist_id';
+  const TS_KEY   = 'jcf_last_sync';
+  const API      = 'https://api.github.com/gists';
+
+  let _status = 'unconfigured';
+  let _timer  = null;
+
+  const pat    = () => localStorage.getItem(PAT_KEY) || '';
+  const gid    = () => localStorage.getItem(GID_KEY) || '';
+
+  function collectState() {
+    return {
+      jcf_state: localStorage.getItem('jcf_state') || '{}',
+      jcf_drive: localStorage.getItem('jcf_drive') || '{}',
+      jcf_lang:  localStorage.getItem('jcf_lang')  || 'en',
+    };
+  }
+
+  function applyState(state) {
+    if (state.jcf_state) localStorage.setItem('jcf_state', state.jcf_state);
+    if (state.jcf_drive) localStorage.setItem('jcf_drive', state.jcf_drive);
+    if (state.jcf_lang)  localStorage.setItem('jcf_lang',  state.jcf_lang);
+  }
+
+  function setStatus(s) {
+    _status = s;
+    const btn = document.getElementById('btn-sync');
+    if (!btn) return;
+    const labels = {
+      unconfigured: '☁ Setup Sync',
+      syncing:      '⟳ Syncing…',
+      synced:       '☁ Synced',
+      error:        '⚠ Sync error',
+      auth_error:   '⚠ Token invalid',
+    };
+    btn.textContent = labels[s] || '☁ Sync';
+    btn.classList.remove('sync-ok','sync-err','sync-busy');
+    if (s === 'synced')                        btn.classList.add('sync-ok');
+    if (s === 'error' || s === 'auth_error')   btn.classList.add('sync-err');
+    if (s === 'syncing')                       btn.classList.add('sync-busy');
+  }
+
+  function authHeaders() {
+    return { Authorization: `Bearer ${pat()}`, Accept: 'application/vnd.github.v3+json' };
+  }
+
+  async function _write() {
+    const now = new Date().toISOString();
+    const body = JSON.stringify({
+      files: { 'progress.json': { content: JSON.stringify({ lastModified: now, state: collectState() }) } }
+    });
+    const r = await fetch(`${API}/${gid()}`, {
+      method: 'PATCH',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body
+    });
+    if (r.status === 401) { setStatus('auth_error'); throw new Error('auth'); }
+    if (!r.ok) { setStatus('error'); throw new Error('write'); }
+    localStorage.setItem(TS_KEY, now);
+  }
+
+  async function init() {
+    if (!pat() || !gid()) { setStatus('unconfigured'); return; }
+    setStatus('syncing');
+    try {
+      const r = await fetch(`${API}/${gid()}`, { headers: authHeaders() });
+      if (r.status === 401) { setStatus('auth_error'); return; }
+      if (!r.ok) { setStatus('error'); return; }
+      const data = await r.json();
+      const raw  = data.files?.['progress.json']?.content;
+      if (raw) {
+        const remote  = JSON.parse(raw);
+        const localTs = localStorage.getItem(TS_KEY) || '0';
+        if (remote.lastModified > localTs) {
+          applyState(remote.state);
+          localStorage.setItem(TS_KEY, remote.lastModified);
+          renderCycle(activeCycle);
+          updateProgress();
+        } else {
+          await _write();
+        }
+      } else {
+        await _write();
+      }
+      setStatus('synced');
+    } catch(e) {
+      if (_status !== 'auth_error') setStatus('error');
+    }
+  }
+
+  function save() {
+    if (!pat() || !gid()) return;
+    setStatus('syncing');
+    clearTimeout(_timer);
+    _timer = setTimeout(async () => {
+      try { await _write(); setStatus('synced'); }
+      catch(e) { /* status set inside _write */ }
+    }, 2000);
+  }
+
+  async function setup(newPat, newGid = null) {
+    if (!newGid) {
+      const r = await fetch(API, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${newPat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Studio Français — Progress Sync',
+          public: false,
+          files: { 'progress.json': { content: JSON.stringify({ lastModified: new Date().toISOString(), state: collectState() }) } }
+        })
+      });
+      if (r.status === 401) throw new Error('auth_error');
+      if (!r.ok) throw new Error('create_failed');
+      const d = await r.json();
+      newGid = d.id;
+    } else {
+      const r = await fetch(`${API}/${newGid}`, {
+        headers: { Authorization: `Bearer ${newPat}`, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (r.status === 401) throw new Error('auth_error');
+      if (!r.ok) throw new Error('fetch_failed');
+    }
+    localStorage.setItem(PAT_KEY, newPat);
+    localStorage.setItem(GID_KEY, newGid);
+    return newGid;
+  }
+
+  function disconnect() {
+    localStorage.removeItem(PAT_KEY);
+    localStorage.removeItem(GID_KEY);
+    setStatus('unconfigured');
+  }
+
+  return { init, save, setup, disconnect, getStatus: () => _status, getGistId: gid };
+})();
+
+// ============================================================
 // HELPERS
 // ============================================================
 function localURL(folder, weekNum, filename){
@@ -676,6 +860,7 @@ function toggleDoc(ci,wi,di,checked){
   const state = getState();
   if(checked) state[docKey(ci,wi,di)]=1; else delete state[docKey(ci,wi,di)];
   saveState(state);
+  syncEngine.save();
   const item = document.getElementById(`di-${ci}-${wi}-${di}`);
   if(item) item.classList.toggle('done', checked);
   // update week counter
@@ -705,6 +890,7 @@ function saveSettings(){
     avance: document.getElementById('drv-a').value.trim(),
   };
   saveDrive(d);
+  syncEngine.save();
   closeSettings();
   renderCycle(activeCycle);
   showToast(t.toastSave);
@@ -746,6 +932,86 @@ function doImport(){
 }
 function closeIO(){ document.getElementById('io-overlay').classList.remove('show'); }
 
+// ============================================================
+// SYNC MODAL
+// ============================================================
+function openSyncModal() {
+  const s = syncEngine.getStatus();
+  if (s === 'unconfigured' || s === 'auth_error') {
+    switchToSetupView();
+    document.getElementById('sync-pat').value = '';
+    document.getElementById('sync-gist-in').value = '';
+    const errEl = document.getElementById('sync-err-msg');
+    if (s === 'auth_error') {
+      errEl.textContent = 'Token expired or invalid — please re-enter.';
+      errEl.style.display = 'block';
+    } else {
+      errEl.style.display = 'none';
+    }
+  } else if (s === 'error') {
+    syncEngine.init();
+    return;
+  } else {
+    switchToSettingsView();
+    document.getElementById('sync-gist-display').value = syncEngine.getGistId();
+  }
+  document.getElementById('sync-overlay').classList.add('show');
+}
+
+function closeSyncModal() { document.getElementById('sync-overlay').classList.remove('show'); }
+
+function switchToSetupView() {
+  document.getElementById('sync-setup-view').style.display = '';
+  document.getElementById('sync-settings-view').style.display = 'none';
+}
+
+function switchToSettingsView() {
+  document.getElementById('sync-setup-view').style.display = 'none';
+  document.getElementById('sync-settings-view').style.display = '';
+}
+
+async function doSyncConnect() {
+  const pat    = document.getElementById('sync-pat').value.trim();
+  const gistId = document.getElementById('sync-gist-in').value.trim() || null;
+  const btn    = document.getElementById('sync-connect-btn');
+  const errEl  = document.getElementById('sync-err-msg');
+
+  if (!pat) { errEl.textContent = 'Please enter your GitHub token.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Connecting…';
+  btn.disabled = true;
+  errEl.style.display = 'none';
+
+  try {
+    await syncEngine.setup(pat, gistId);
+    closeSyncModal();
+    showToast('✅ Sync connected!');
+    syncEngine.init();
+  } catch(e) {
+    errEl.textContent = e.message === 'auth_error'
+      ? 'Invalid token or missing "gist" scope. Please check and try again.'
+      : 'Connection failed. Check your internet connection and try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Connect';
+    btn.disabled = false;
+  }
+}
+
+function copySyncGistId() {
+  navigator.clipboard.writeText(document.getElementById('sync-gist-display').value)
+    .then(() => showToast('✅ Gist ID copied!'));
+}
+
+function doDisconnect() {
+  syncEngine.disconnect();
+  closeSyncModal();
+  showToast('Sync disconnected.');
+}
+
+// Close sync modal on overlay click
+document.getElementById('sync-overlay').addEventListener('click', function(e){ if(e.target===this) closeSyncModal(); });
+
 // Close modals on overlay click
 document.getElementById('settings-overlay').addEventListener('click', function(e){ if(e.target===this) closeSettings(); });
 document.getElementById('io-overlay').addEventListener('click', function(e){ if(e.target===this) closeIO(); });
@@ -780,6 +1046,7 @@ function applyTranslations(){
 applyTranslations();
 updateProgress();
 showCycle(activeCycle);
+syncEngine.init();
 </script>
 </body>
 </html>
